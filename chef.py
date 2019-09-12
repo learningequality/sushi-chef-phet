@@ -16,7 +16,9 @@ from ricecooker.utils.browser import preview_in_browser
 from ricecooker.utils.caching import CacheForeverHeuristic, FileCache, CacheControlAdapter
 from ricecooker.utils.html import download_file
 from ricecooker.utils.zip import create_predictable_zip
+from le_utils.constants import roles
 from le_utils.constants.languages import getlang
+
 
 sess = requests.Session()
 cache = FileCache('.webcache')
@@ -60,26 +62,33 @@ SIM_TYPO = {
 }
 
 
+CHANNEL_DESCRIPTIONS = {
+    'ar': 'تزوّد هذه القناة والمعمول بمحتواها من قبل جامعة كونيتيكيت الأمريكية مجموعة من برمجيات المحاكاة التي يمكن للمتعلمين في المرحلة الإعدادية والثانوية التفاعل معها لفهم أكبر لما قد يدرسونه من قوانين وتجارب في الرياضيات والعلوم المختلفة وخاصة مادتي الكيمياء والفيزياء.',
+    'en': 'The PhET Interactive Simulations project created by the University of Colorado Boulder provides interactive math and science simulations that engage students with intuitive, game-like environments. Students can learn about math, physics, biology, and chemistry through hands-on exploration and discovery. The simulations are appropriate for all ages and include guiding teacher lesson plans.',
+}
+
+
 class PhETSushiChef(SushiChef):
 
     def get_channel(self, **kwargs):
         LANGUAGE = kwargs.get("lang", "en")
         lang_obj = getlang(LANGUAGE)
 
-        title_id_suffix = LANGUAGE
-        source_id_suffix = '-{}'.format(LANGUAGE)
-
         if LANGUAGE == "en":
             source_id_suffix = ''
-        elif LANGUAGE == "ar":
-            title_id_suffix = lang_obj.native_name
+        else:
+            source_id_suffix = '-{}'.format(LANGUAGE)
+
+        description = CHANNEL_DESCRIPTIONS.get(LANGUAGE, None)
+        if description is None:
+            description = CHANNEL_DESCRIPTIONS['en']
 
         channel = ChannelNode(
             source_domain = 'phet.colorado.edu',
             source_id = 'phet-html5-simulations{}'.format(source_id_suffix),
-            title = 'PhET Interactive Simulations ({})'.format(title_id_suffix),
-            thumbnail = 'https://phet.colorado.edu/images/phet-social-media-logo.png',
-            description = 'The PhET Interactive Simulations project at the University of Colorado Boulder provides a collection of 140 interactive simulations for teaching and learning science and math for upper middle school and high school students. Most content available supports chemistry and physics learning.',
+            title = 'PhET Interactive Simulations ({})'.format(lang_obj.native_name),
+            thumbnail = 'chefdata/phet-logo-TM-partners.png',
+            description = description,
             language=lang_obj,
         )
 
@@ -199,6 +208,7 @@ class PhETSushiChef(SushiChef):
                 title="Video: %s" % localized_sim["title"],
                 license=CC_BYLicense("PhET Interactive Simulations, University of Colorado Boulder"),
                 thumbnail=sim["media"]["thumbnailUrl"],
+                role=roles.COACH,
             )
 
             topic.add_child(videonode)
