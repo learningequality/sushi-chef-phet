@@ -29,35 +29,40 @@ ID_BLACKLIST = ["html", "by-device", "new", "quantum", "general"]
 
 class PhETSushiChef(SushiChef):
 
-    channel_info = {
-        'CHANNEL_SOURCE_DOMAIN': 'phet.colorado.edu',
-        'CHANNEL_SOURCE_ID': 'phet-html5-simulations',
-        'CHANNEL_TITLE': 'PhET Interactive Simulations',
-        'CHANNEL_THUMBNAIL': 'https://phet.colorado.edu/images/phet-social-media-logo.png',
-        'CHANNEL_DESCRIPTION': 'The PhET Interactive Simulations project at the University of Colorado Boulder creates free interactive math and science simulations that engage students through an intuitive, game-like environment where students learn through exploration and discovery.',
-    }
+    def get_channel(self, **kwargs):
+
+        source_id = 'phet-html5-simulations'
+
+        language = kwargs.get("language", "en")
+
+        # original English chef was run with no suffix here, so be back-compatible
+        if language != "en":
+            source_id += "-%s" % language
+
+        return ChannelNode(
+            source_domain='phet.colorado.edu',
+            source_id=source_id,
+            title='PhET Interactive Simulations (%s)' % language,
+            thumbnail = 'https://phet.colorado.edu/images/phet-social-media-logo.png',
+            description = 'The PhET Interactive Simulations project at the University of Colorado Boulder creates free interactive math and science simulations that engage students through an intuitive, game-like environment where students learn through exploration and discovery.',
+        )
 
     def construct_channel(self, **kwargs):
 
-        channel = ChannelNode(
-            source_domain = self.channel_info['CHANNEL_SOURCE_DOMAIN'],
-            source_id = self.channel_info['CHANNEL_SOURCE_ID'],
-            title = self.channel_info['CHANNEL_TITLE'],
-            thumbnail = self.channel_info.get('CHANNEL_THUMBNAIL'),
-            description = self.channel_info.get('CHANNEL_DESCRIPTION'),
-        )
+        language = kwargs.get("language", "en")
 
-        LANGUAGE = "en"
+        channel = self.get_channel(**kwargs)
 
-        r = sess.get("https://phet.colorado.edu/services/metadata/1.1/simulations?format=json&type=html&locale=" + LANGUAGE)
+        r = sess.get("https://phet.colorado.edu/services/metadata/1.1/simulations?format=json&type=html&locale=" + language)
+
         data = json.loads(r.content.decode())
         self.download_category(
             parent=channel,
             cat_id="1",
             categories=data["categories"],
             sims={proj["simulations"][0]["id"]: proj["simulations"][0] for proj in data["projects"]},
-            keywords={kw["id"]: kw["strings"][0][LANGUAGE] for kw in data["keywords"]},
-            language=LANGUAGE,
+            keywords={kw["id"]: kw["strings"][0][language] for kw in data["keywords"]},
+            language=language,
         )
 
         return channel
@@ -138,7 +143,7 @@ class PhETSushiChef(SushiChef):
 
         # if there's a video, extract it and put it in the topic right before the sim
         videos = sim["media"]["vimeoFiles"]
-        if videos:
+        if videos and language == "en":
             video_url = [v for v in videos if v.get("height") == 540][0]["link"]
 
             videonode = VideoNode(
