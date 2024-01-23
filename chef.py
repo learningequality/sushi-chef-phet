@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import json
 import re
 import requests
@@ -334,6 +335,7 @@ class PhETSushiChef(SushiChef):
                 filename="index.html",
                 request_fn=sess.get,
                 middleware_callbacks=[process_sim_html],
+                middleware_kwargs={ "sim_title": title },
             )
 
             zippath = create_predictable_zip(dst)
@@ -411,19 +413,47 @@ def process_sim_html(content, destpath, **kwargs):
     # remove online links from "about" modal
     content = content.replace("getLinks:function(", "getLinks:function(){return [];},doNothing:function(")
 
+    # setting up the query parameters for cases in which it works
+    regex = r"(this\.getAllForString\([^,]+,[^w]*)(window\.location\.search)(\s*\))"
+    replacement = r"\1window.location.search === '' ? '?allowLinks=false&disableFullscreen' : window.location.search\3"
+    content = re.sub(regex, replacement, content)
     soup = BeautifulSoup(content, "html.parser")
+
 
     for script in soup.find_all("script"):
         # remove Google Analytics and online image bug requests
         if "analytics.js" in str(script):
             script.extract()
+
         if 'phetWebsite' in str(script):
             # remove menu options that link to online resources
+            # fallbacks in case the above regex work fails
             script.string = re.compile('tandem: e.createTandem\(\"screenshotMenuItem\"\),').sub("", script.string)
             script.string = re.compile('tandem: e.createTandem\(\"fullScreenMenuItem\"\),').sub("", script.string)
-            script.string = re.compile('tandem: e.createTandem\(\"screenshotMenuItem\"\)').sub("", script.string)
             script.string = re.compile('string!JOIST/menuItem.reportAProblem').sub("", script.string)
+            script.string = re.compile('string!JOIST/menuItem.phetWebsite').sub("", script.string)
 
+    clean_title = kwargs.get("sim_title").replace(" ", "-").replace("'", "-")
+
+    ##############
+    # DEBUG HELP #
+    ##############
+    """
+    Set your env var `DUMP_SIMS=true` when running the chef to have the resulting HTML files dumped
+    to a `processed_sims` directory
+    """
+    if os.environ.get("DUMP_SIMS", False):
+
+        # check if the processed_sims directory exists 
+        if not os.path.exists("processed_sims"):
+            # create it if not
+            os.makedirs("processed_sims")
+
+        # Write's every sim's HTML to the directory
+        # in a terminal, run: python -m http.server <port> to test sims in your browser
+        with open("processed_sims/{}.html".format(clean_title), 'w') as f:
+            f.write(str(soup))
+            f.close()
     return str(soup)
 
 
